@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -14,6 +15,9 @@ namespace BulkUploadTestDataGenerator
 
         static void Main(string[] args)
         {
+            if (bool.Parse(ConfigurationManager.AppSettings["includeErrors"]))
+                Console.WriteLine("WARNING YOU HAVE CHOSEN TO INCLUDE ERRORS, PERCENTAGES WILL ONLY WORK IF YOU USE A MULTIPLE OF 100");
+
             var recordCount = ConsoleHelper.ReadInteger("Number of records to generate: ");
             Console.WriteLine("Enter cohort: ");
             var cohort = Console.ReadLine().Trim();
@@ -142,11 +146,8 @@ namespace BulkUploadTestDataGenerator
                 datalock.IlrEndpointAssessorPrice = 0;
                 datalock.IlrPriceEffectiveDate = row.StartDate;
                 datalock.IlrPriceEffectiveFromDate = row.StartDate;
-                datalock.Errors.Add(new DataLockError
-                {
-                    ErrorCode = "DLOCK_07",
-                    SystemDescription = "Price datalock"
-                });
+
+                datalock.Errors = GetDataLockErrors();
                 result.Items.Add(datalock);
             }
 
@@ -155,6 +156,31 @@ namespace BulkUploadTestDataGenerator
             //                new TrainingCourse { FworkCode = "583", ProgType = "3", PwayCode = "4"},
 
             return result;
+        }
+
+        private static int dataLockPercentageCounter;
+
+        private static List<DataLockError> GetDataLockErrors()
+        {
+            if (!bool.Parse(ConfigurationManager.AppSettings["includeErrors"]))
+                return new List<DataLockError>();
+
+            if (dataLockPercentageCounter >= 100)
+                dataLockPercentageCounter = 0;
+
+            dataLockPercentageCounter++;
+
+            if(dataLockPercentageCounter <= int.Parse(ConfigurationManager.AppSettings["percentageErrors"]))
+                return new List<DataLockError>
+                {
+                    new DataLockError
+                    {
+                        ErrorCode = "DLOCK_07",
+                        SystemDescription = "Price datalock"
+                    }
+                };
+
+            return new List<DataLockError>();
         }
 
         private static void OutputFile(List<DataRow> rows, string path)
